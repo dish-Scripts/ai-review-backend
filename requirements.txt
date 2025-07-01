@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+ollama
+starlette
+flask
+gunicorn
+streamlit
+yt-dlp
+whisper
+ollama
+reportlab
