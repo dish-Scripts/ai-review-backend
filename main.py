@@ -1,44 +1,49 @@
-# main.py
 from fastapi import FastAPI, Request
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import StreamingResponse
 import ollama
 
 app = FastAPI()
 
-# CORS: Allow frontend to call backend
+# Allow CORS (important for frontend to talk to backend)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with your frontend URL for better security
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Health check route
+class ReviewRequest(BaseModel):
+    input_text: str
+
 @app.get("/")
 def root():
     return {"message": "✅ AI Review Synthesizer Backend is Running!"}
 
-# POST endpoint for generating meta-review
-@app.post("/generate-meta-review")
-async def generate_meta_review(request: Request):
-    data = await request.json()
-    prompt = data.get("prompt")
+@app.post("/generate-review")
+def generate_review(request: ReviewRequest):
+    prompt = f"""
+You are an expert product analyst. Based on the following summarized reviews of a product, perform a meta-analysis.
 
-    if not prompt:
-        return {"error": "No prompt provided."}
+1. Identify the **Top 5–6 key features** discussed (e.g., Battery, Display, Performance).
+2. For each feature, explain:
+   - What multiple reviewers agreed on
+   - Any disagreements or differing opinions
+3. Create a final section:
+   - ✅ **Consolidated Pros**
+   - ❌ **Consolidated Cons**
+   - 💡 **Unique Comments** (said by only one reviewer)
 
-    def stream_response():
-        response = ollama.chat(
-            model="gemma:2b",  # or "mistral"
-            messages=[{"role": "user", "content": prompt}],
-            stream=True
-        )
-        for chunk in response:
-            content = chunk.get("message", {}).get("content", "")
-            if content:
-                yield content
+Use clear markdown-style formatting.
 
-    return StreamingResponse(stream_response(), media_type="text/plain")
+Summaries:
+{request.input_text}
+"""
+
+    response = ollama.chat(
+        model="mistral",  # or gemma, or any other
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return {"review": response['message']['content']}
 
